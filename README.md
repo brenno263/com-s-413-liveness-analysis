@@ -9,5 +9,4 @@ This issue should be named with the convention:
 - For a change adding functionality, `feat/<descriptive-name>`, and label as feature.
 - For a change not adding functionality, `fix/<descriptive-name>`, and label as a fix.
 
-Then, create a branch for the issue and start working. When you've finished, open a pull request.
-The pull request needs at least one approval from another contributor before it can be merged in.
+Then, create a branch for the issue and start working. When you've finished, open a pull request for review, or just merge it in if you're confident.
