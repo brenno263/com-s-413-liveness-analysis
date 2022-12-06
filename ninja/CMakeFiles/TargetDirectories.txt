@@ -1,3 +1,0 @@
-/home/project/Hydrogen/MVICFG/ninja/CMakeFiles/rebuild_cache.dir
-/home/project/Hydrogen/MVICFG/ninja/CMakeFiles/Hydrogen.out.dir
-/home/project/Hydrogen/MVICFG/ninja/CMakeFiles/edit_cache.dir

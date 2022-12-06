@@ -166,3 +166,6 @@ pythontex-files-*/
 # endfloat
 *.ttt
 *.fff
+
+# build directory 
+ninja
