@@ -82,9 +82,9 @@ int main(int argc, char *argv[]) {
   if (argc < 2) {
     std::cerr << "Insufficient arguments\n"
               << "The correct format is as follows:\n"
-              << "<Path-to-Module1> <Path-to-Module2> .. <Path-to-ModuleN> :: "
-              << "<Path-to-file1-for-Module1> .. <Path-to-fileN-for-Module1> :: "
-              << "<Path-to-file2-for-Module2> .. <Path-to-fileN-for-Module2> ..\n"
+              << "<Path-to-Bytecode> :: "
+              << "<Path-to-file1-for-Bytecode> .. <Path-to-fileN-for-Bytecode>"
+              << "\n"
               << "Note that '::' is the demarcation\n";
     return 1;
   } // End check for min argument
@@ -95,18 +95,17 @@ int main(int argc, char *argv[]) {
   if (!framework.processInputs(argc, argv)) {
     return 3;
   } // End check for processing Inputs
-  std::list<Module *> mod = framework.getModules();
-  /* Create ICFG */
+  //mod is the bytecode we're making the ICFG for.
+  Module *mod = framework.getModules().front();
+  /* Create CFG */
   unsigned graphVersion = 1;
-  Module *firstMod = mod.front();
-  Graph *MVICFG = buildICFG(firstMod, graphVersion);
+  Graph *CFG = buildICFG(mod, graphVersion);
   /* Start timer */
-  auto mvicfgStart = std::chrono::high_resolution_clock::now();
-  /* Create MVICFG */
-  // TODO: Traverse the graph (Called MVICFG currently) and do analysis.
+  auto analysisStart = std::chrono::high_resolution_clock::now();
+  // TODO: Traverse the graph (CFG) and do analysis on it.
   /* Stop timer */
-  auto mvicfgStop = std::chrono::high_resolution_clock::now();
-  auto mvicfgBuildTime = std::chrono::duration_cast<std::chrono::milliseconds>(mvicfgStop - mvicfgStart);
+  auto analysisStop = std::chrono::high_resolution_clock::now();
+  auto analysisTime = std::chrono::duration_cast<std::chrono::milliseconds>(analysisStop - analysisStart);
 
   // Here we do a little print out of net path changes.
   //int max_version = MVICFG->getGraphVersion();
@@ -119,8 +118,8 @@ int main(int argc, char *argv[]) {
 	//std::cout << " paths were " << (paths_diff < 0 ? "removed." : "added.") << std::endl;
   //}
 
-  MVICFG->printGraph("MVICFG");
-  std::cout << "Finished Building CFG in " << mvicfgBuildTime.count() << "ms\n";
+  CFG->printGraph("CFG");
+  std::cout << "Finished Analyzing CFG in " << mvicfgBuildTime.count() << "ms\n";
   /* Write output to file */
   std::ofstream rFile("Result.txt", std::ios::trunc);
   if (!rFile.is_open()) {
@@ -132,7 +131,7 @@ int main(int argc, char *argv[]) {
     rFile << argv[i] << "  ";
   } // End loop for writing arguments
   rFile << "\n";
-  rFile << "Finished Building CFG in " << mvicfgBuildTime.count() << "ms\n";
+  rFile << "Finished Analyzing CFG in " << mvicfgBuildTime.count() << "ms\n";
   rFile.close();
   return 0;
 } // End main
