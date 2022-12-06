@@ -1,0 +1,3 @@
+Input Args:
+../../ninja/Hydrogen.out  tsv1.bc  tsv2.bc  tsv3.bc  ::  tiny_serverv1.c  ::  tiny_serverv2.c  ::  tiny_serverv3.c  
+Finished Building MVICFG in 3706ms
