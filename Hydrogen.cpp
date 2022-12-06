@@ -103,50 +103,24 @@ int main(int argc, char *argv[]) {
   /* Start timer */
   auto mvicfgStart = std::chrono::high_resolution_clock::now();
   /* Create MVICFG */
-  for (auto iterModule = mod.begin(), iterModuleEnd = mod.end(); iterModule != iterModuleEnd; ++iterModule) {
-    auto iterModuleNext = std::next(iterModule);
-    /* Proceed as long as there is a next module */
-    if (iterModuleNext != iterModuleEnd) {
-      /* Container for added and deleted MVICFG lines */
-      std::list<Graph_Line *> addedLines;
-      std::list<Graph_Line *> deletedLines;
-      std::map<Graph_Line *, Graph_Line *> matchedLines; /**<Map From ICFG Graph_Line to MVICFG Graph_Line */
-      std::list<Diff_Mapping> diffMap = generateLineMapping(*iterModule, *iterModuleNext);
-      Graph *ICFG = buildICFG(*iterModuleNext, ++graphVersion);
-      for (auto iter : diffMap) {
-        /* iter.printFileInfo(); */
-        std::list<Graph_Line *> iterAdd = addToMVICFG(MVICFG, ICFG, iter, graphVersion);
-        std::list<Graph_Line *> iterDel = deleteFromMVICFG(MVICFG, ICFG, iter, graphVersion);
-        std::map<Graph_Line *, Graph_Line *> iterMatch = matchedInMVICFG(MVICFG, ICFG, iter, graphVersion);
-        addedLines.insert(addedLines.end(), iterAdd.begin(), iterAdd.end());
-        deletedLines.insert(deletedLines.end(), iterDel.begin(), iterDel.end());
-        matchedLines.insert(iterMatch.begin(), iterMatch.end());
-      } // End loop for diffMap
-      /* Update Map Edges */
-      getEdgesForAddedLines(MVICFG, ICFG, addedLines, diffMap, graphVersion);
-      /* Update the matched lines to get new temporary variable mapping for old lines */
-      updateMVICFGVersion(MVICFG, addedLines, deletedLines, diffMap, graphVersion);
-      /* Update Map Version */
-      MVICFG->setGraphVersion(graphVersion);
-    } // End check for iterModuleEnd
-  } // End loop for Module
+  // TODO: Traverse the graph (Called MVICFG currently) and do analysis.
   /* Stop timer */
   auto mvicfgStop = std::chrono::high_resolution_clock::now();
   auto mvicfgBuildTime = std::chrono::duration_cast<std::chrono::milliseconds>(mvicfgStop - mvicfgStart);
 
   // Here we do a little print out of net path changes.
-  int max_version = MVICFG->getGraphVersion();
-  for(int i = 2; i <= max_version; i++) {
-	int paths_before = num_paths(MVICFG, i - 1);
-	int paths_after = num_paths(MVICFG, i);
-	int paths_diff = paths_after - paths_before;
-	std::cout << "From version " << i - 1 << " to version " << i;
-	std::cout << ", " << (paths_diff < 0 ? paths_diff * -1 : paths_diff);
-	std::cout << " paths were " << (paths_diff < 0 ? "removed." : "added.") << std::endl;
-  }
+  //int max_version = MVICFG->getGraphVersion();
+  //for(int i = 2; i <= max_version; i++) {
+	//int paths_before = num_paths(MVICFG, i - 1);
+	//int paths_after = num_paths(MVICFG, i);
+	//int paths_diff = paths_after - paths_before;
+	//std::cout << "From version " << i - 1 << " to version " << i;
+	//std::cout << ", " << (paths_diff < 0 ? paths_diff * -1 : paths_diff);
+	//std::cout << " paths were " << (paths_diff < 0 ? "removed." : "added.") << std::endl;
+  //}
 
   MVICFG->printGraph("MVICFG");
-  std::cout << "Finished Building MVICFG in " << mvicfgBuildTime.count() << "ms\n";
+  std::cout << "Finished Building CFG in " << mvicfgBuildTime.count() << "ms\n";
   /* Write output to file */
   std::ofstream rFile("Result.txt", std::ios::trunc);
   if (!rFile.is_open()) {
@@ -158,7 +132,7 @@ int main(int argc, char *argv[]) {
     rFile << argv[i] << "  ";
   } // End loop for writing arguments
   rFile << "\n";
-  rFile << "Finished Building MVICFG in " << mvicfgBuildTime.count() << "ms\n";
+  rFile << "Finished Building CFG in " << mvicfgBuildTime.count() << "ms\n";
   rFile.close();
   return 0;
 } // End main

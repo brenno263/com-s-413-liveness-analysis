@@ -10,7 +10,6 @@
 
 using namespace hydrogen_framework;
 
-
 bool node_list_contains(std::list<Graph_Instruction*> &edges, Graph_Instruction* edge) {
 	for (auto e : edges) {
 		if(e == edge) return true;
