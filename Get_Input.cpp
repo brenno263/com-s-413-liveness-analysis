@@ -40,32 +40,20 @@ bool Hydrogen::processInputs(int c, char *files[]) {
     } // End check for module
     hydrogenModules.push_back(module);
   } // End module loop
-  /* Getting the files associated with it */
-  bool filesForAllVersions = false;
-  for (int i = 1; i <= countModules; ++i) {
-    std::list<std::string> versionFiles;
-    for (++index; index < c; ++index) {
+  std::list<std::string> versionFiles;
+  for (++index; index < c; ++index) {
       std::string file = files[index];
       /* Checking for proper loop exit */
       if (file == hydrogenDemarcation) {
-        if (i == (countModules - 1)) {
-          filesForAllVersions = true;
-        } // End check for countModules
         break;
       } // End check for hydrogenDemarcation
       versionFiles.push_back(file);
     } // End loop for versionFiles
     auto moduleIter = std::find_if(std::begin(hydrogenModules), std::end(hydrogenModules),
-                                   [=](Module *mod) { return (mod->getVersion() == i); });
+                                   [=](Module *mod) { return (mod->getVersion() == 1); });
     if (moduleIter != hydrogenModules.end()) {
       (*moduleIter)->setFiles(versionFiles);
     } // End check for hydrogenDemarcation
-  }   // End file loop
-  if (!filesForAllVersions) {
-    std::cerr << "Insufficient no of file versions provided\n"
-              << "Please recheck your input\n";
-    return false;
-  } // End check for filesForAllVersions
   return true;
 } // End processInputs
 } // namespace hydrogen_framework
