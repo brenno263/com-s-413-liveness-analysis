@@ -21,12 +21,6 @@ bool node_list_contains(std::list<Graph_Instruction*> &edges, Graph_Instruction*
 	return false;
 }
 
-bool edge_has_relevant_version(Graph_Edge* edge, int version) {
-	for(auto v : edge->getEdgeVersions())
-		if(v == version) return true;
-	return false;
-}
-
 bool is_back_edge(Graph_Edge* edge, Graph_Instruction* node) {
 	return edge->getEdgeTo() == node;
 }
@@ -37,7 +31,7 @@ bool is_back_edge(Graph_Edge* edge, Graph_Instruction* node) {
  * This can be found with num_edges - num_nodes + 2, because then each node accounts for one outgoing edge, and the excess are counted as branches.
  * We add two to this. 1 because a straight line counts as a path, so we need to offset our count. 1 more to account for the exit node.
 */
-int num_paths(Graph* g) {
+void find_dead_code(Graph* g) {
 	auto edges = g->getGraphEdges();
   auto functions = g->getGraphFunctions();
 	std::list<Graph_Instruction*> nodes_visited = {};
@@ -119,8 +113,6 @@ int num_paths(Graph* g) {
   for (auto f : dead_func) {
     std::cout << f->getFunctionName() << "\n";
   }
-
-	return 0;
 }
 
 /**
@@ -157,7 +149,7 @@ int main(int argc, char *argv[]) {
   auto mvicfgStop = std::chrono::high_resolution_clock::now();
   auto mvicfgBuildTime = std::chrono::duration_cast<std::chrono::milliseconds>(mvicfgStop - mvicfgStart);
 
-  int paths = num_paths(MVICFG);
+  find_dead_code(MVICFG);
 
   MVICFG->printGraph("MVICFG");
   std::cout << "Finished Building CFG in " << mvicfgBuildTime.count() << "ms\n";
