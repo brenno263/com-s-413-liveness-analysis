@@ -98,6 +98,7 @@ int num_paths(Graph* g) {
     }
 	}
 
+  // Compare used function list with complete function list. Add functions that are not used to dead function list.
   bool in_list = false;
   for (auto f : functions) {
     for (auto u : used_func) {
@@ -119,7 +120,7 @@ int num_paths(Graph* g) {
     std::cout << f->getFunctionName() << "\n";
   }
 
-	return nodes_visited.size() + 2;
+	return 0;
 }
 
 /**
