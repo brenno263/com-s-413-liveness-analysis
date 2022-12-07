@@ -74,6 +74,57 @@ int num_paths(Graph* g, int version) {
 	return n_edges - nodes_visited.size() + 2;
 }
 
+void livenessAnalysis(Graph* g)
+{
+  //TODO: Initialize containers for IN, OUT, KILL, and GEN, with enough space for every (or less space and use a broader space).
+  for (auto f : g.getGraphFunctions())
+  {
+    for (auto l : f.getFunctionLines())
+    {
+      for (auto i : l.getLineInstructions())
+      {
+        //TODO: Set GEN for i to include any variable used in i
+        //TODO: Set KILL for i to include to any variable assigned/reassigned/free()'d in i.
+      }
+    }
+  }
+  Graph_Instruction * exit = g.findVirtualExit("main");
+  //TODO: Set OUT for exit to be the empty set
+  do
+  {
+    bool changed = false;
+    for (auto f : g->getGraphFunctions())
+    {
+      for (auto l : f->getFunctionLines())
+      {
+        for (auto i : l->getLineInstructions())
+        {
+          //TODO: Store i's IN set as a temp variable
+          //TODO: Set i's IN set to be i's GEN set
+          for (auto edge : i->getInstructionEdges())
+          {
+            if (edge->getEdgeFrom()->getInstructionID() == i->getInstructionID())
+            {
+              Graph_Instruction * other = edge->getEdgeTo();
+              //TODO: Add every element in other's IN set to i's OUT set (no need to add duplicates)
+            }
+          }
+          //TODO: If an element is in i's OUT set but NOT it's KILL set, add it to i's IN set (ignoring duplicates).
+
+          //TODO: Compare i's IN set with the temp variable. If they differ, set changed to be true. If not, leave changed alone.
+          if (false)
+          {
+            changed = true;
+          }
+        }
+      }
+    }
+  } while (changed);
+  
+  // Now we have a bunch of sets that tells us when we can stop caring about a variable's value.
+  // Analyze the sets for variables that do not appear in any IN values to find useless variables.
+}
+
 /**
  * Main function
  */
