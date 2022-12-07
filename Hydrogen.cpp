@@ -14,7 +14,6 @@
 
 using namespace hydrogen_framework;
 
-
 bool node_list_contains(std::list<Graph_Instruction*> &edges, Graph_Instruction* edge) {
 	for (auto e : edges) {
 		if(e == edge) return true;
@@ -38,40 +37,89 @@ bool is_back_edge(Graph_Edge* edge, Graph_Instruction* node) {
  * This can be found with num_edges - num_nodes + 2, because then each node accounts for one outgoing edge, and the excess are counted as branches.
  * We add two to this. 1 because a straight line counts as a path, so we need to offset our count. 1 more to account for the exit node.
 */
-int num_paths(Graph* g, int version) {
+int num_paths(Graph* g) {
 	auto edges = g->getGraphEdges();
+  auto functions = g->getGraphFunctions();
 	std::list<Graph_Instruction*> nodes_visited = {};
 	std::list<Graph_Instruction*> stack = {};
+  std::list<Graph_Function*> dead_func = {};
+  std::list<Graph_Function*> used_func = {};
 
-	int n_edges = 0;
-
+  // Use for finding dead code in conditional statements and functions
 	Graph_Instruction* node = g->findVirtualEntry("main");
 	nodes_visited.push_back(node);
 	Graph_Instruction* exit_node = g->findVirtualExit("main");
 	while(true) {
-		auto edges = node->getInstructionEdges();
-		for(auto e : edges) {
-			// we don't want to consider edges that lead backward, or that don't exist for our version.
-			if(!is_back_edge(e, node) && edge_has_relevant_version(e, version)) {
-				n_edges++;
-				if(!node_list_contains(nodes_visited, e->getEdgeTo()))
-					stack.push_back(e->getEdgeTo());
-			};
-		}
-		
-		if(stack.empty()) {
-			break;
-		} else {
-			node = stack.front();
-			stack.pop_front();
-			nodes_visited.push_back(node);
-		}
+    auto edges = node->getInstructionEdges();
+    
+    for (auto e : edges) {
+      if (!is_back_edge(e, node)) {
+        if (!node_list_contains(nodes_visited, e->getEdgeTo())) {
+          stack.push_back(e->getEdgeTo());
+        }
+      }
+    }
+
+    for (auto f : functions) {
+      int func_used = 0;
+
+      // Go through all edges in instruction and check which function they are associated with, add to used function list
+      for (auto e : edges) {
+        Graph_Line *from = e->getEdgeFrom()->getGraphLine();
+        Graph_Line *to = e->getEdgeTo()->getGraphLine();
+
+        Graph_Function *func_from = from->getGraphFunction();
+        Graph_Function *func_to = to->getGraphFunction();
+
+        if (func_from == f || func_to == f) {
+          bool in_list = false;
+          for (auto u : used_func) {
+            if (u == f) {
+              in_list = true;
+            }
+          }
+
+          if (!in_list) {
+            used_func.push_back(f);
+          }
+
+          continue;
+        }
+      }
+    }
+
+    if (stack.empty()) {
+      break;
+    }
+    else {
+      node = stack.front();
+      stack.pop_front();
+      nodes_visited.push_back(node);
+    }
 	}
 
-	std::cout << "graph num edges: " << n_edges << ", graph num nodes: " << nodes_visited.size() << std::endl;
-	std::cout << "version: " << version << ", paths " << n_edges - nodes_visited.size() + 2 << std::endl;
+  bool in_list = false;
+  for (auto f : functions) {
+    for (auto u : used_func) {
+      if (u == f) {
+        in_list = true;
+      }
+    }
 
-	return n_edges - nodes_visited.size() + 2;
+    if (!in_list) {
+      dead_func.push_back(f);
+    }
+  }
+
+  // Dead functions stored in dead_func
+  // Dead code stored in dead_code in the form on lines of code
+
+  std::cout << "Unused functions:\n";
+  for (auto f : dead_func) {
+    std::cout << f->getFunctionName() << "\n";
+  }
+
+	return nodes_visited.size() + 2;
 }
 
 /**
@@ -108,16 +156,7 @@ int main(int argc, char *argv[]) {
   auto mvicfgStop = std::chrono::high_resolution_clock::now();
   auto mvicfgBuildTime = std::chrono::duration_cast<std::chrono::milliseconds>(mvicfgStop - mvicfgStart);
 
-  // Here we do a little print out of net path changes.
-  //int max_version = MVICFG->getGraphVersion();
-  //for(int i = 2; i <= max_version; i++) {
-	//int paths_before = num_paths(MVICFG, i - 1);
-	//int paths_after = num_paths(MVICFG, i);
-	//int paths_diff = paths_after - paths_before;
-	//std::cout << "From version " << i - 1 << " to version " << i;
-	//std::cout << ", " << (paths_diff < 0 ? paths_diff * -1 : paths_diff);
-	//std::cout << " paths were " << (paths_diff < 0 ? "removed." : "added.") << std::endl;
-  //}
+  int paths = num_paths(MVICFG);
 
   MVICFG->printGraph("MVICFG");
   std::cout << "Finished Building CFG in " << mvicfgBuildTime.count() << "ms\n";
