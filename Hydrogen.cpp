@@ -65,24 +65,25 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
       continue;
 
     unsigned int numOperands = inst.getNumOperands();
-    for (unsigned int opIndex = 0; opIndex < numOperands; opIndex++) {
+    for (int opIndex = numOperands; opIndex > 0;) {
+      opIndex--;
       llvm::Value *op = inst.getOperand(opIndex);
       if (op == NULL || !op->hasName()) {
         continue;
       }
 
-      std::cout << "line " << getLine(inst) << " op: " << inst.getOpcodeName() << " index: " << opIndex << std::endl;
+      //std::cout << "line " << getLine(inst) << " op: " << inst.getOpcodeName() << " index: " << opIndex << std::endl;
 
       std::string varName = op->getName().str();
       // ignore retval, it's used as a function's return value.
       if (varName.compare("retval") == 0) {
         continue;
       }
-
+      
       // Consider these operations to be added to GEN. They use a variable
       if (opcode == llvm::Instruction::Load) {
-        if (!stringListContains(gen, varName)) {
-          std::cout << "added to GEN: " << varName << std::endl;
+        if (!stringListContains(gen, varName) && !stringListContains(kill, varName)) {
+          //std::cout << "added to GEN: " << varName << std::endl;
           gen.push_back(varName);
         }
       }
@@ -90,7 +91,7 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
       // Consider these operations to be added to KILL. They set a variable (second operand of store)
       if (opcode == llvm::Instruction::Store && opIndex == 1) {
         if (!stringListContains(kill, varName)) {
-          std::cout << "added to KILL: " << varName << std::endl;
+          //std::cout << "added to KILL: " << varName << std::endl;
           kill.push_back(varName);
         }
       }
@@ -126,9 +127,9 @@ void livenessAnalysis(Module *mod) {
     //	std::cout << "set length for block " << i << " : " << genMap[i].size();
     //}
 
-    int blockNum = 0;
+    //int blockNum = 0;
     for (llvm::BasicBlock &block : blocks) {
-      std::cout << "block num: " << blockNum << std::endl;
+      //std::cout << "block num: " << blockNum << std::endl;
       std::list<std::string> gen;
       std::list<std::string> kill;
       analyzeBlock(block, gen, kill);
@@ -136,7 +137,7 @@ void livenessAnalysis(Module *mod) {
       genMap[&block] = gen;
       killMap[&block] = kill;
       inMap[&block] = genMap[&block];
-      blockNum++;
+      //blockNum++;
     }
 
     //std::cout << "Entering Loop\n";
@@ -184,6 +185,8 @@ void livenessAnalysis(Module *mod) {
 
     // Now we have a bunch of sets that tells us when we can stop caring about a variable's value.
     // Analyze the sets for variables that do not appear in any IN values to find useless variables.
+    std::list<std::string> usedVariables;
+    std::list<std::string> setVariables;
     std::cout << "Generated results for the function " << func.getName().str() << std::endl;
     std::cout << "Values for GEN\n";
     for (auto iterator = genMap.begin(); iterator != genMap.end(); ++iterator)
@@ -193,6 +196,10 @@ void livenessAnalysis(Module *mod) {
       for (auto listElement : iterator->second)
       {
         contents += listElement + ",";
+        if (!stringListContains(usedVariables, listElement))
+        {
+          usedVariables.push_back(listElement);
+        }
       }
       if (contents.size() > 0)
       {
@@ -208,6 +215,10 @@ void livenessAnalysis(Module *mod) {
       for (auto listElement : iterator->second)
       {
         contents += listElement + ",";
+        if (!stringListContains(setVariables, listElement))
+        {
+          setVariables.push_back(listElement);
+        }
       }
       if (contents.size() > 0)
       {
@@ -246,6 +257,33 @@ void livenessAnalysis(Module *mod) {
       
       std::cout << contents << "}\n";
     } 
+
+    std::string contents = "";
+    for (auto variable : usedVariables)
+    {
+      if (!stringListContains(setVariables, variable))
+      {
+        contents += variable + ",";
+      }
+    }
+    if (contents.size() > 0)
+    {
+      contents.pop_back();
+      std::cout << "Variables used without being set: {" << contents << "}" << std::endl;
+    }
+    contents = "";
+    for (auto variable : setVariables)
+    {
+      if (!stringListContains(usedVariables, variable))
+      {
+        contents += variable + ",";
+      }
+    }
+    if (contents.size() > 0)
+    {
+      contents.pop_back();
+      std::cout << "Variables set without being (instantly) used: {" << contents << "}" << std::endl;
+    }
   }
 }
 
@@ -272,13 +310,13 @@ int main(int argc, char *argv[]) {
   } // End check for processing Inputs
   // mod is the bytecode we're making the ICFG for.
   Module *mod = framework.getModules().front();
-  livenessAnalysis(mod);
+  
   /* Create CFG */
   unsigned graphVersion = 1;
   Graph *CFG = buildICFG(mod, graphVersion);
   /* Start timer */
   auto analysisStart = std::chrono::high_resolution_clock::now();
-  // TODO: Traverse the graph (CFG) and do analysis on it.
+  livenessAnalysis(mod);
   /* Stop timer */
   auto analysisStop = std::chrono::high_resolution_clock::now();
   auto analysisTime = std::chrono::duration_cast<std::chrono::milliseconds>(analysisStop - analysisStart);
