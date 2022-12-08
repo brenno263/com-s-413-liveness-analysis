@@ -135,6 +135,7 @@ void livenessAnalysis(Module *mod) {
 
       genMap[&block] = gen;
       killMap[&block] = kill;
+      inMap[&block] = genMap[&block];
       blockNum++;
     }
 
@@ -162,6 +163,7 @@ void livenessAnalysis(Module *mod) {
           }
           outMap[&block] = out;
         }
+        outMap[&block] = out; //For the end block, so it shows up.
         for (std::string check : out)
         {
           if (!stringListContains(in, check) && (killMap.find(&block) == killMap.end()|| !stringListContains(killMap.find(&block)->second, check)))
@@ -186,42 +188,63 @@ void livenessAnalysis(Module *mod) {
     std::cout << "Values for GEN\n";
     for (auto iterator = genMap.begin(); iterator != genMap.end(); ++iterator)
     {
-      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << " and contents: {";
+      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << "\nWith contents: {";
+      std::string contents = "";
       for (auto listElement : iterator->second)
       {
-        std::cout << listElement << ",";
+        contents += listElement + ",";
       }
-      std::cout << "}\n";
+      if (contents.size() > 0)
+      {
+        contents.pop_back();
+      }
+      std::cout << contents << "}\n";
     }
     std::cout << "Values for KILL\n";
     for (auto iterator = killMap.begin(); iterator != killMap.end(); ++iterator)
     {
-      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << " and contents: {";
+      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << "\nWith contents: {";
+      std::string contents = "";
       for (auto listElement : iterator->second)
       {
-        std::cout << listElement << ",";
+        contents += listElement + ",";
       }
-      std::cout << "}\n";
+      if (contents.size() > 0)
+      {
+        contents.pop_back();
+      }
+      std::cout << contents << "}\n";
     }
     std::cout << "Values for IN\n";
     for (auto iterator = inMap.begin(); iterator != inMap.end(); ++iterator)
     {
-      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << " and contents: {";
+      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << "\nWith contents: {";
+      std::string contents = "";
       for (auto listElement : iterator->second)
       {
-        std::cout << listElement << ",";
+        contents += listElement + ",";
       }
-      std::cout << "}\n";
+      if (contents.size() > 0)
+      {
+        contents.pop_back();
+      }
+      std::cout << contents << "}\n";
     }
     std::cout << "Values for OUT\n";
     for (auto iterator = outMap.begin(); iterator != outMap.end(); ++iterator)
     {
-      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << " and contents: {";
+      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << "\nWith contents: {";
+      std::string contents = "";
       for (auto listElement : iterator->second)
       {
-        std::cout << listElement << ",";
+        contents += listElement + ",";
       }
-      std::cout << "}\n";
+      if (contents.size() > 0)
+      {
+        contents.pop_back();
+      }
+      
+      std::cout << contents << "}\n";
     } 
   }
 }
