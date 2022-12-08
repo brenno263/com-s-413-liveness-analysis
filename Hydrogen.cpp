@@ -25,6 +25,91 @@ bool is_back_edge(Graph_Edge* edge, Graph_Instruction* node) {
 	return edge->getEdgeTo() == node;
 }
 
+bool check_if_variable_changed(std::list<Graph_Instruction*> nodes_visited, std::list<Graph_Instruction*> stack, Graph_Instruction* node, std::string current_var) {
+  int num_stores = 0;
+  bool used_in_comparison = false;
+  std::list<std::string> checked_instructions = {};
+
+  while (true) {
+    auto edges = node->getInstructionEdges();
+    
+    for (auto e : edges) {
+      if (!is_back_edge(e, node)) {
+        if (!node_list_contains(nodes_visited, e->getEdgeTo())) {
+          stack.push_back(e->getEdgeTo());
+        }
+      }
+    }
+
+    std::string current_var_append = current_var + ",";
+    for (auto e : edges) {
+      std::string from_label = e->getEdgeFrom()->getInstructionLabel();
+      std::string to_label = e->getEdgeTo()->getInstructionLabel();
+
+      // Check if from_label contains the current variable
+      if (from_label.find(current_var_append) != std::string::npos) {
+
+        // Check if instruction was already checked
+        bool checked = false;
+        for (auto i : checked_instructions) {
+          if (from_label.compare(i) == 0) {
+            checked = true;
+          }
+        }
+
+        // Check if new value is stored in variable. If variable is stored in different register, current_val is updated to the new register.
+        // If a new value is stored into the current_val register, the variable was changed so we return true;
+        if (from_label.find("store") != std::string::npos && !checked) {
+          checked_instructions.push_back(from_label);
+          num_stores++;
+        }
+
+        if (from_label.find("load") != std::string::npos) {
+          std::string reg = from_label.substr(from_label.find("%"), from_label.find(" =")-2);
+          std::string reg_append = reg + " ";
+
+          if (!used_in_comparison) {
+            if (from_label.find(reg_append) != std::string::npos && to_label.find("icmp") != std::string::npos) {
+              std::string check = to_label.substr(to_label.find("="));
+              check = check.substr(0, check.find(","));
+              std::string check_reg = check.substr(check.find("%"));
+
+              if (check_reg.compare(reg) == 0) {
+                used_in_comparison = true;
+
+                if (num_stores < 2) {
+                  std::cout << "Variable " << current_var << " is not changed before comparison" << std::endl;
+                  return false;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (stack.empty()) {
+      break;
+    }
+    else {
+      node = stack.front();
+      stack.pop_front();
+      nodes_visited.push_back(node);
+    }
+  }
+
+  if (num_stores >= 2 && used_in_comparison) {
+    std::cout << "Variable " << current_var << " is changed before comparison" << std::endl;
+    return true;
+  }
+  if (num_stores < 2 && used_in_comparison) {
+    std::cout << "Variable " << current_var << " is not changed before comparison" << std::endl;
+    return false;
+  }
+  std::cout << "Variable " << current_var << " is unused" << std::endl;
+  return false;
+}
+
 /**
  * We perform a depth first search of the tree, counting the number of relevant nodes and edges.
  * Our number of paths depends on branches, so we count it as "the total number of edges leaving a node which aren't the first edge to leave that node"
@@ -38,6 +123,7 @@ void find_dead_code(Graph* g) {
 	std::list<Graph_Instruction*> stack = {};
   std::list<Graph_Function*> dead_func = {};
   std::list<Graph_Function*> used_func = {};
+  std::list<std::string> checked_variables = {};
 
   // Use for finding dead code in conditional statements and functions
 	Graph_Instruction* node = g->findVirtualEntry("main");
@@ -78,6 +164,30 @@ void find_dead_code(Graph* g) {
           }
 
           continue;
+        }
+      }
+    }
+
+    // Look for variable declarations. If variable is not changed before it is used in conditional, the code in the conditional is dead.
+    for (auto e : edges) {
+      std::string from_label = e->getEdgeFrom()->getInstructionLabel();
+      std::string current_var;
+
+      // Find variable being declared
+      if (from_label.find("llvm.dbg.declare") != std::string::npos) {
+        std::string f = from_label.substr(from_label.find("%"));
+        current_var = f.substr(0, f.find(","));
+
+        bool in_list = false;
+        for (auto v : checked_variables) {
+          if (v.compare(current_var) == 0) {
+            in_list = true;
+          }
+        }
+        
+        if (!in_list) {
+            checked_variables.push_back(current_var);
+            bool changed = check_if_variable_changed(nodes_visited, stack, node, current_var);
         }
       }
     }
