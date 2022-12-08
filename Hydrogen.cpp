@@ -10,8 +10,8 @@
 #include "Graph_Line.hpp"
 #include "MVICFG.hpp"
 #include "Module.hpp"
-#include <chrono>
 #include "llvm/IR/CFG.h"
+#include <chrono>
 
 using namespace hydrogen_framework;
 
@@ -21,6 +21,22 @@ bool stringListContains(const std::list<std::string> &list, const std::string &s
       return true;
   }
   return false;
+}
+
+bool stringListsEqual(const std::list<std::string> &a, const std::list<std::string> &b) {
+  if (a.size() != b.size()) {
+    return false;
+  }
+  auto ait = a.begin();
+  auto bit = b.begin();
+  while (ait != a.end()) {
+    if ((*ait).compare(*bit) != 0) {
+      return false;
+    }
+    ++ait;
+    ++bit;
+  }
+  return true;
 }
 
 unsigned int getLine(llvm::Instruction &inst) {
@@ -33,10 +49,17 @@ unsigned int getLine(llvm::Instruction &inst) {
   return dbgInfo->getLine();
 }
 
+std::string getBlockName(llvm::BasicBlock *b) {
+  if (b->hasName()) {
+    return b->getName().str();
+  }
+  return std::string("unnamed");
+}
+
 /**
  * Appends everything in a that is not also in b to out.
  */
-void setDiff(const std::list<std::string> &a, const std::list<std::string> &b, std::list<std::string> &out) {
+void appendSetDiff(std::list<std::string> &a, std::list<std::string> &b, std::list<std::string> &out) {
   for (const std::string &ai : a) {
     if (!stringListContains(b, ai)) {
       out.push_back(ai);
@@ -48,12 +71,15 @@ void setDiff(const std::list<std::string> &a, const std::list<std::string> &b, s
  * Appends everything that is in either a or b to out, with no duplicates.
  * the contents of a are appended first.
  */
-void setUnion(const std::list<std::string> &a, const std::list<std::string> &b, std::list<std::string> &out) {
-  for (auto ai : a) {
-    out.push_back(ai);
-  }
-  setDiff(b, a, out);
+void appendSetUnion(std::list<std::string> &a, std::list<std::string> &b, std::list<std::string> &out) {
+  appendSetDiff(a, out, out);
+  appendSetDiff(b, out, out);
 }
+
+/**
+ * Union the set onto our first operand.
+ */
+void foldSetUnion(std::list<std::string> &fold, std::list<std::string> &a) { appendSetDiff(a, fold, fold); }
 
 void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::list<std::string> &kill) {
   // auto instList = block.getInstList();
@@ -72,18 +98,18 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
         continue;
       }
 
-      //std::cout << "line " << getLine(inst) << " op: " << inst.getOpcodeName() << " index: " << opIndex << std::endl;
+      // std::cout << "line " << getLine(inst) << " op: " << inst.getOpcodeName() << " index: " << opIndex << std::endl;
 
       std::string varName = op->getName().str();
       // ignore retval, it's used as a function's return value.
       if (varName.compare("retval") == 0) {
         continue;
       }
-      
+
       // Consider these operations to be added to GEN. They use a variable
       if (opcode == llvm::Instruction::Load) {
-        if (!stringListContains(gen, varName) && !stringListContains(kill, varName)) {
-          //std::cout << "added to GEN: " << varName << std::endl;
+        if (!stringListContains(gen, varName)) {
+          // std::cout << "added to GEN: " << varName << std::endl;
           gen.push_back(varName);
         }
       }
@@ -91,20 +117,34 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
       // Consider these operations to be added to KILL. They set a variable (second operand of store)
       if (opcode == llvm::Instruction::Store && opIndex == 1) {
         if (!stringListContains(kill, varName)) {
-          //std::cout << "added to KILL: " << varName << std::endl;
+          // std::cout << "added to KILL: " << varName << std::endl;
           kill.push_back(varName);
         }
       }
     }
   }
 
-  //NOTE: The code below causes a bug, since some things might be used before being killed WITHIN a given Basic Block.
-  //This does check for some errors, but I feel being able to say x = x+1 requires x be definied is more important.
+  // NOTE: The code below causes a bug, since some things might be used before being killed WITHIN a given Basic Block.
+  // This does check for some errors, but I feel being able to say x = x+1 requires x be definied is more important.
 
   // Make sure anything in gen which is also killed in this block gets cropped out.
-  //for (auto k : kill) {
+  // for (auto k : kill) {
   //  gen.remove(k);
   //}
+}
+
+std::string concatStringList(std::list<std::string> &list) {
+  std::string out("");
+  for (auto s : list) {
+    out.append(s);
+    out.append(", ");
+  }
+  // trim the trailing comma + space if necessary.
+  if (out.length() > 0) {
+    out.pop_back();
+    out.pop_back();
+  }
+  return out;
 }
 
 void livenessAnalysis(Module *mod) {
@@ -118,67 +158,71 @@ void livenessAnalysis(Module *mod) {
 
     // These represent our relevant string sets for each block.
     // The set for each block lives at its index.
-    std::map<llvm::BasicBlock*, std::list<std::string>> genMap;
-    std::map<llvm::BasicBlock*, std::list<std::string>> killMap;
-    std::map<llvm::BasicBlock*, std::list<std::string>> inMap;
-    std::map<llvm::BasicBlock*, std::list<std::string>> outMap;
+    std::map<llvm::BasicBlock *, std::list<std::string>> genMap;
+    std::map<llvm::BasicBlock *, std::list<std::string>> killMap;
+    std::map<llvm::BasicBlock *, std::list<std::string>> inMap;
+    std::map<llvm::BasicBlock *, std::list<std::string>> outMap;
 
-    //for(int i = 0; i < blocks.size(); i++) {
+    // for(int i = 0; i < blocks.size(); i++) {
     //	std::cout << "set length for block " << i << " : " << genMap[i].size();
-    //}
+    // }
 
-    //int blockNum = 0;
+    // int blockNum = 0;
     for (llvm::BasicBlock &block : blocks) {
-      //std::cout << "block num: " << blockNum << std::endl;
+      // std::cout << "block num: " << blockNum << std::endl;
       std::list<std::string> gen;
       std::list<std::string> kill;
       analyzeBlock(block, gen, kill);
 
       genMap[&block] = gen;
       killMap[&block] = kill;
-      inMap[&block] = genMap[&block];
-      //blockNum++;
+      std::list<std::string> empty;
+      inMap[&block] = empty;
+      outMap[&block] = empty;
+      // blockNum++;
     }
 
-    //std::cout << "Entering Loop\n";
+    // std::cout << "Entering Loop\n";
     bool changed = true;
     while (changed) {
-      //std::cout << "Loop Start\n";
       changed = false;
-      for (llvm::BasicBlock &block : blocks)
-      {
-        //std::cout << "Inner Loop Start\n";
-        std::list<std::string> temp = inMap.find(&block) == inMap.end() ? std::list<std::string>() : inMap.find(&block)->second;
-        std::list<std::string> in = inMap.find(&block) == inMap.end() ? std::list<std::string>() : inMap.find(&block)->second;
-        std::list<std::string> out = outMap.find(&block) == outMap.end() ? std::list<std::string>() : outMap.find(&block)->second;
-        for (llvm::BasicBlock *successor : successors(&block))
-        {
-          //std::cout << "Successors looking\n";
-          std::list<std::string> needed = inMap.find(successor) == inMap.end() ? std::list<std::string>() : inMap.find(successor)->second;
-          for (std::string e : needed)
-          {
-            if (!stringListContains(out, e))
-            {
-              out.push_back(e);
-            }
-          }
-          outMap[&block] = out;
+      for (auto blockIter = blocks.begin(); blockIter != blocks.end(); ++blockIter) {
+        auto &block = *blockIter;
+
+        auto gen = genMap.find(&block)->second;
+        auto kill = killMap.find(&block)->second;
+
+        // Copy out our oldIn so we can compare at the end to detect change.
+        std::list<std::string> oldIn;
+        for (auto str : inMap.find(&block)->second) {
+          oldIn.push_back(str);
         }
-        outMap[&block] = out; //For the end block, so it shows up.
-        for (std::string check : out)
-        {
-          if (!stringListContains(in, check) && (killMap.find(&block) == killMap.end()|| !stringListContains(killMap.find(&block)->second, check)))
-          {
-            in.push_back(check);
-          }
+
+        // LIVEout[s] = Union for p in successors of LIVEin[p].
+        // UNLESS we're the last block. Then enforce that out is empty
+        std::list<std::string> outFold;
+        for (llvm::BasicBlock *successor : successors(&block)) {
+          //   std::cout << "Successors looking" << std::endl;
+
+          auto succLiveIn = inMap.find(successor)->second;
+          foldSetUnion(outFold, succLiveIn);
         }
-        inMap[&block] = in;
-        for (std::string element : in)
-        {
-          if (!stringListContains(temp, element))
-          {
-            changed = true;
-          }
+        outMap[&block] = outFold;
+
+        // LIVEin[s] = GEN[s] Union (LIVEout[s] - KILL[s])
+        std::list<std::string> liveIn;
+        appendSetDiff(outFold, kill, liveIn);
+        foldSetUnion(liveIn, gen);
+        inMap[&block] = liveIn;
+
+        // std::cout << "old in: " << concatStringList(oldIn) << std::endl;
+        // std::cout << "live in: " << concatStringList(liveIn) << std::endl;
+        // std::cout << "live out: " << concatStringList(outFold) << std::endl;
+        // std::cout << "kill: " << concatStringList(kill) << std::endl;
+        // std::cout << "gen: " << concatStringList(gen) << std::endl;
+
+        if (!stringListsEqual(oldIn, liveIn)) {
+          changed = true;
         }
       }
     }
@@ -187,103 +231,52 @@ void livenessAnalysis(Module *mod) {
     // Analyze the sets for variables that do not appear in any IN values to find useless variables.
     std::list<std::string> usedVariables;
     std::list<std::string> setVariables;
-    std::cout << "Generated results for the function " << func.getName().str() << std::endl;
-    std::cout << "Values for GEN\n";
-    for (auto iterator = genMap.begin(); iterator != genMap.end(); ++iterator)
-    {
-      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << "\nWith contents: {";
-      std::string contents = "";
-      for (auto listElement : iterator->second)
-      {
-        contents += listElement + ",";
-        if (!stringListContains(usedVariables, listElement))
-        {
-          usedVariables.push_back(listElement);
-        }
-      }
-      if (contents.size() > 0)
-      {
-        contents.pop_back();
-      }
-      std::cout << contents << "}\n";
-    }
-    std::cout << "Values for KILL\n";
-    for (auto iterator = killMap.begin(); iterator != killMap.end(); ++iterator)
-    {
-      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << "\nWith contents: {";
-      std::string contents = "";
-      for (auto listElement : iterator->second)
-      {
-        contents += listElement + ",";
-        if (!stringListContains(setVariables, listElement))
-        {
-          setVariables.push_back(listElement);
-        }
-      }
-      if (contents.size() > 0)
-      {
-        contents.pop_back();
-      }
-      std::cout << contents << "}\n";
-    }
-    std::cout << "Values for IN\n";
-    for (auto iterator = inMap.begin(); iterator != inMap.end(); ++iterator)
-    {
-      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << "\nWith contents: {";
-      std::string contents = "";
-      for (auto listElement : iterator->second)
-      {
-        contents += listElement + ",";
-      }
-      if (contents.size() > 0)
-      {
-        contents.pop_back();
-      }
-      std::cout << contents << "}\n";
-    }
-    std::cout << "Values for OUT\n";
-    for (auto iterator = outMap.begin(); iterator != outMap.end(); ++iterator)
-    {
-      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << "\nWith contents: {";
-      std::string contents = "";
-      for (auto listElement : iterator->second)
-      {
-        contents += listElement + ",";
-      }
-      if (contents.size() > 0)
-      {
-        contents.pop_back();
-      }
-      
-      std::cout << contents << "}\n";
-    } 
+    std::list<std::string> unusedVariables;
 
-    std::string contents = "";
-    for (auto variable : usedVariables)
-    {
-      if (!stringListContains(setVariables, variable))
-      {
-        contents += variable + ",";
+    std::cout << "~~~~~~~~~~ Generated results for the function " << func.getName().str() << " ~~~~~~~~~~" << std::endl;
+    for (auto iterator = genMap.begin(); iterator != genMap.end(); ++iterator) {
+      llvm::BasicBlock *block = iterator->first;
+      llvm::Instruction &startingInstruction = block->front();
+      std::cout << "~~~ Block with name: " << getBlockName(block) << " line: " << getLine(startingInstruction) << " ~~~"
+                << std::endl;
+
+      auto genList = genMap.find(block)->second;
+      auto killList = killMap.find(block)->second;
+      auto inList = inMap.find(block)->second;
+      auto outList = outMap.find(block)->second;
+
+      std::cout << "Values for GEN: {" << concatStringList(genList) << "}" << std::endl;
+      std::cout << "Values for KILL: {" << concatStringList(killList) << "}" << std::endl;
+      std::cout << "Values for IN: {" << concatStringList(inList) << "}" << std::endl;
+      std::cout << "Values for OUT: {" << concatStringList(outList) << "}" << std::endl;
+
+      // Anything in the kill list which isn't in the out list is going unused.
+      appendSetDiff(killList, outList, unusedVariables);
+
+      for (auto str : genList) {
+        if (!stringListContains(usedVariables, str)) {
+          usedVariables.push_back(str);
+        }
+      }
+      for (auto str : killList) {
+        if (!stringListContains(setVariables, str)) {
+          setVariables.push_back(str);
+        }
       }
     }
-    if (contents.size() > 0)
-    {
-      contents.pop_back();
-      std::cout << "Variables used without being set: {" << contents << "}" << std::endl;
-    }
-    contents = "";
-    for (auto variable : setVariables)
-    {
-      if (!stringListContains(usedVariables, variable))
-      {
-        contents += variable + ",";
-      }
-    }
-    if (contents.size() > 0)
-    {
-      contents.pop_back();
-      std::cout << "Variables set without being (instantly) used: {" << contents << "}" << std::endl;
-    }
+
+    std::list<std::string> usedButNotSet;
+    appendSetDiff(usedVariables, setVariables, usedButNotSet);
+
+    std::list<std::string> setButNotUsed;
+    appendSetDiff(setVariables, usedVariables, setButNotUsed);
+
+	std::cout << "~~~ Report ~~~" << std::endl;
+
+    std::cout << "Variables used without being set: {" << concatStringList(usedButNotSet) << "}" << std::endl;
+    std::cout << "Variables set without being (instantly) used: {" << concatStringList(setButNotUsed) << "}"
+              << std::endl;
+    std::cout << "Variables set without being (EVER) used: {" << concatStringList(unusedVariables) << "}" << std::endl;
   }
 }
 
@@ -310,7 +303,7 @@ int main(int argc, char *argv[]) {
   } // End check for processing Inputs
   // mod is the bytecode we're making the ICFG for.
   Module *mod = framework.getModules().front();
-  
+
   /* Create CFG */
   unsigned graphVersion = 1;
   Graph *CFG = buildICFG(mod, graphVersion);
