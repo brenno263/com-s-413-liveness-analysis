@@ -11,6 +11,7 @@
 #include "MVICFG.hpp"
 #include "Module.hpp"
 #include <chrono>
+#include "llvm/IR/CFG.h"
 
 using namespace hydrogen_framework;
 
@@ -96,86 +97,133 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
     }
   }
 
+  //NOTE: The code below causes a bug, since some things might be used before being killed WITHIN a given Basic Block.
+  //This does check for some errors, but I feel being able to say x = x+1 requires x be definied is more important.
+
   // Make sure anything in gen which is also killed in this block gets cropped out.
-  for (auto k : kill) {
-    gen.remove(k);
-  }
+  //for (auto k : kill) {
+  //  gen.remove(k);
+  //}
 }
 
 void livenessAnalysis(Module *mod) {
 
   std::unique_ptr<llvm::Module> &modPtr = mod->getPtr();
-  // TODO: Initialize containers for IN, OUT, KILL, and GEN, with enough space for every (or less space and use a
-  // broader space).
 
   for (llvm::Function &func : (*modPtr)) {
-	llvm::Function::BasicBlockListType &blocks = func.getBasicBlockList();
+    llvm::Function::BasicBlockListType &blocks = func.getBasicBlockList();
 
+    int numInst = 0;
 
     // These represent our relevant string sets for each block.
     // The set for each block lives at its index.
-    std::vector<std::list<std::string>> genMap(blocks.size(), std::list<std::string>());
-    std::vector<std::list<std::string>> killMap(blocks.size(), std::list<std::string>());
-    std::vector<std::list<std::string>> inMap(blocks.size(), std::list<std::string>());
-    std::vector<std::list<std::string>> outMap(blocks.size(), std::list<std::string>());
+    std::map<llvm::BasicBlock*, std::list<std::string>> genMap;
+    std::map<llvm::BasicBlock*, std::list<std::string>> killMap;
+    std::map<llvm::BasicBlock*, std::list<std::string>> inMap;
+    std::map<llvm::BasicBlock*, std::list<std::string>> outMap;
 
-	for(int i = 0; i < blocks.size(); i++) {
-		std::cout << "set length for block " << i << " : " << genMap[i].size();
-	}
+    //for(int i = 0; i < blocks.size(); i++) {
+    //	std::cout << "set length for block " << i << " : " << genMap[i].size();
+    //}
 
+    int blockNum = 0;
+    for (llvm::BasicBlock &block : blocks) {
+      std::cout << "block num: " << blockNum << std::endl;
+      std::list<std::string> gen;
+      std::list<std::string> kill;
+      analyzeBlock(block, gen, kill);
+
+      genMap[&block] = gen;
+      killMap[&block] = kill;
+      blockNum++;
+    }
+
+    //std::cout << "Entering Loop\n";
     bool changed = true;
     while (changed) {
-      int blockNum = 0;
-      for (llvm::BasicBlock &block : blocks) {
-        std::cout << "block num: " << blockNum << std::endl;
-        std::list<std::string> gen;
-        std::list<std::string> kill;
-
-        analyzeBlock(block, gen, kill);
-
-        blockNum++;
+      //std::cout << "Loop Start\n";
+      changed = false;
+      for (llvm::BasicBlock &block : blocks)
+      {
+        //std::cout << "Inner Loop Start\n";
+        std::list<std::string> temp = inMap.find(&block) == inMap.end() ? std::list<std::string>() : inMap.find(&block)->second;
+        std::list<std::string> in = inMap.find(&block) == inMap.end() ? std::list<std::string>() : inMap.find(&block)->second;
+        std::list<std::string> out = outMap.find(&block) == outMap.end() ? std::list<std::string>() : outMap.find(&block)->second;
+        for (llvm::BasicBlock *successor : successors(&block))
+        {
+          //std::cout << "Successors looking\n";
+          std::list<std::string> needed = inMap.find(successor) == inMap.end() ? std::list<std::string>() : inMap.find(successor)->second;
+          for (std::string e : needed)
+          {
+            if (!stringListContains(out, e))
+            {
+              out.push_back(e);
+            }
+          }
+          outMap[&block] = out;
+        }
+        for (std::string check : out)
+        {
+          if (!stringListContains(in, check) && (killMap.find(&block) == killMap.end()|| !stringListContains(killMap.find(&block)->second, check)))
+          {
+            in.push_back(check);
+          }
+        }
+        inMap[&block] = in;
+        for (std::string element : in)
+        {
+          if (!stringListContains(temp, element))
+          {
+            changed = true;
+          }
+        }
       }
     }
 
-    // for (auto l : f.getFunctionLines())
-    // {
-    //   for (auto i : l.getLineInstructions())
-    //   {
-    //     //TODO: Set GEN for i to include any variable used in i
-    //     //TODO: Set KILL for i to include to any variable assigned/reassigned/free()'d in i.
-    //   }
-    // }
+    // Now we have a bunch of sets that tells us when we can stop caring about a variable's value.
+    // Analyze the sets for variables that do not appear in any IN values to find useless variables.
+    std::cout << "Generated results for the function " << func.getName().str() << std::endl;
+    std::cout << "Values for GEN\n";
+    for (auto iterator = genMap.begin(); iterator != genMap.end(); ++iterator)
+    {
+      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << " and contents: {";
+      for (auto listElement : iterator->second)
+      {
+        std::cout << listElement << ",";
+      }
+      std::cout << "}\n";
+    }
+    std::cout << "Values for KILL\n";
+    for (auto iterator = killMap.begin(); iterator != killMap.end(); ++iterator)
+    {
+      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << " and contents: {";
+      for (auto listElement : iterator->second)
+      {
+        std::cout << listElement << ",";
+      }
+      std::cout << "}\n";
+    }
+    std::cout << "Values for IN\n";
+    for (auto iterator = inMap.begin(); iterator != inMap.end(); ++iterator)
+    {
+      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << " and contents: {";
+      for (auto listElement : iterator->second)
+      {
+        std::cout << listElement << ",";
+      }
+      std::cout << "}\n";
+    }
+    std::cout << "Values for OUT\n";
+    for (auto iterator = outMap.begin(); iterator != outMap.end(); ++iterator)
+    {
+      std::cout << "BasicBlock Name: " << iterator->first->getName().str() << " and contents: {";
+      for (auto listElement : iterator->second)
+      {
+        std::cout << listElement << ",";
+      }
+      std::cout << "}\n";
+    } 
   }
-  //   Graph_Instruction *exit = g.findVirtualExit("main");
-  //   // TODO: Set OUT for exit to be the empty set
-  //   do {
-  //     bool changed = false;
-  //     for (auto f : g->getGraphFunctions()) {
-  //       for (auto l : f->getFunctionLines()) {
-  //         for (auto i : l->getLineInstructions()) {
-  //           // TODO: Store i's IN set as a temp variable
-  //           // TODO: Set i's IN set to be i's GEN set
-  //           for (auto edge : i->getInstructionEdges()) {
-  //             if (edge->getEdgeFrom()->getInstructionID() == i->getInstructionID()) {
-  //               Graph_Instruction *other = edge->getEdgeTo();
-  //               // TODO: Add every element in other's IN set to i's OUT set (no need to add duplicates)
-  //             }
-  //           }
-  //           // TODO: If an element is in i's OUT set but NOT it's KILL set, add it to i's IN set (ignoring
-  //           duplicates).
-
-  //           // TODO: Compare i's IN set with the temp variable. If they differ, set changed to be true. If not, leave
-  //           // changed alone.
-  //           if (false) {
-  //             changed = true;
-  //           }
-  //         }
-  //       }
-  //     }
-  //   } while (changed);
-
-  // Now we have a bunch of sets that tells us when we can stop caring about a variable's value.
-  // Analyze the sets for variables that do not appear in any IN values to find useless variables.
 }
 
 /**
