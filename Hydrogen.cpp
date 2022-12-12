@@ -15,6 +15,9 @@
 
 using namespace hydrogen_framework;
 
+/**
+ * Returns true if edges contains edge, and false otherwise
+ */
 bool node_list_contains(std::list<Graph_Instruction *> &edges, Graph_Instruction *edge) {
   for (auto e : edges) {
     if (e == edge)
@@ -23,8 +26,14 @@ bool node_list_contains(std::list<Graph_Instruction *> &edges, Graph_Instruction
   return false;
 }
 
+/**
+* Returns true if the edge ends at this node.
+*/
 bool is_back_edge(Graph_Edge *edge, Graph_Instruction *node) { return edge->getEdgeTo() == node; }
 
+/*
+* Checks if a variable changes from its initial value before it is used.
+*/
 bool check_if_variable_changed(std::list<Graph_Instruction *> nodes_visited, std::list<Graph_Instruction *> stack,
                                Graph_Instruction *node, std::string current_var) {
   int num_stores = 0;
@@ -228,6 +237,9 @@ void find_dead_code(Graph *g) {
   }
 }
 
+/**
+ * Returns true if list contains str, and false otherwise
+ */
 bool stringListContains(const std::list<std::string> &list, const std::string &str) {
   for (auto s : list) {
     if (s.compare(str) == 0)
@@ -236,6 +248,9 @@ bool stringListContains(const std::list<std::string> &list, const std::string &s
   return false;
 }
 
+/**
+ * Returns true if a and b have the same elements in the same order, and false otherwise.
+ */
 bool stringListsEqual(const std::list<std::string> &a, const std::list<std::string> &b) {
   if (a.size() != b.size()) {
     return false;
@@ -252,6 +267,9 @@ bool stringListsEqual(const std::list<std::string> &a, const std::list<std::stri
   return true;
 }
 
+/**
+ * Gets the line number of an instruction, or zero if its not stored.
+ */
 unsigned int getLine(llvm::Instruction &inst) {
   const llvm::DebugLoc &dbgInfo = inst.getDebugLoc();
   auto addr = std::addressof(dbgInfo);
@@ -262,6 +280,9 @@ unsigned int getLine(llvm::Instruction &inst) {
   return dbgInfo->getLine();
 }
 
+/**
+ * Returns the name of the given BasicBlock, or "unnamed" if there is no name 
+ */
 std::string getBlockName(llvm::BasicBlock *b) {
   if (b->hasName()) {
     return b->getName().str();
@@ -294,24 +315,24 @@ void appendSetUnion(std::list<std::string> &a, std::list<std::string> &b, std::l
  */
 void foldSetUnion(std::list<std::string> &fold, std::list<std::string> &a) { appendSetDiff(a, fold, fold); }
 
+/**
+ * Sets the passes gen and kill variables to their starting values for the given BasicBlock block.
+ */
 void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::list<std::string> &kill) {
-  // auto instList = block.getInstList();
   for (auto &inst : block) {
-
+    //For each instruction in the BasicBlock
     unsigned int opcode = inst.getOpcode();
 
-    if (opcode == llvm::Instruction::Call)
-      continue;
+    if (opcode == llvm::Instruction::Call) 
+      continue; //We don't learn anything from function calls, skip this instruciton
 
     unsigned int numOperands = inst.getNumOperands();
     for (int opIndex = numOperands; opIndex > 0;) {
-      opIndex--;
+      opIndex--; //Done like this because 1: right to left is useful and 2: numOperands is unsigned, so numOperands - 1 is dangerous.
       llvm::Value *op = inst.getOperand(opIndex);
       if (op == NULL || !op->hasName()) {
         continue;
       }
-
-      // std::cout << "line " << getLine(inst) << " op: " << inst.getOpcodeName() << " index: " << opIndex << std::endl;
 
       std::string varName = op->getName().str();
       // ignore retval, it's used as a function's return value.
@@ -322,7 +343,6 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
       // Consider these operations to be added to GEN. They use a variable
       if (opcode == llvm::Instruction::Load) {
         if (!stringListContains(gen, varName)) {
-          // std::cout << "added to GEN: " << varName << std::endl;
           gen.push_back(varName);
         }
       }
@@ -330,22 +350,16 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
       // Consider these operations to be added to KILL. They set a variable (second operand of store)
       if (opcode == llvm::Instruction::Store && opIndex == 1) {
         if (!stringListContains(kill, varName)) {
-          // std::cout << "added to KILL: " << varName << std::endl;
           kill.push_back(varName);
         }
       }
     }
   }
-
-  // NOTE: The code below causes a bug, since some things might be used before being killed WITHIN a given Basic Block.
-  // This does check for some errors, but I feel being able to say x = x+1 requires x be definied is more important.
-
-  // Make sure anything in gen which is also killed in this block gets cropped out.
-  // for (auto k : kill) {
-  //  gen.remove(k);
-  //}
 }
 
+/*
+* Format a nice looking string for printing a list of strings
+*/
 std::string concatStringList(std::list<std::string> &list) {
   std::string out("");
   for (auto s : list) {
@@ -360,14 +374,16 @@ std::string concatStringList(std::list<std::string> &list) {
   return out;
 }
 
+/**
+ * main function that handles the livenessAnalysis portion of our code on a given module mod
+ */
 void livenessAnalysis(Module *mod) {
 
   std::unique_ptr<llvm::Module> &modPtr = mod->getPtr();
 
   for (llvm::Function &func : (*modPtr)) {
+    // We break the module into functions, and get a list of the current function's BasicBlocks
     llvm::Function::BasicBlockListType &blocks = func.getBasicBlockList();
-
-    int numInst = 0;
 
     // These represent our relevant string sets for each block.
     // The set for each block lives at its index.
@@ -376,13 +392,8 @@ void livenessAnalysis(Module *mod) {
     std::map<llvm::BasicBlock *, std::list<std::string>> inMap;
     std::map<llvm::BasicBlock *, std::list<std::string>> outMap;
 
-    // for(int i = 0; i < blocks.size(); i++) {
-    //	std::cout << "set length for block " << i << " : " << genMap[i].size();
-    // }
-
-    // int blockNum = 0;
+    // This loop sets the initial values of GEN and KILL for each block.
     for (llvm::BasicBlock &block : blocks) {
-      // std::cout << "block num: " << blockNum << std::endl;
       std::list<std::string> gen;
       std::list<std::string> kill;
       analyzeBlock(block, gen, kill);
@@ -392,10 +403,8 @@ void livenessAnalysis(Module *mod) {
       std::list<std::string> empty;
       inMap[&block] = empty;
       outMap[&block] = empty;
-      // blockNum++;
     }
 
-    // std::cout << "Entering Loop\n";
     bool changed = true;
     while (changed) {
       changed = false;
@@ -427,12 +436,6 @@ void livenessAnalysis(Module *mod) {
         appendSetDiff(outFold, kill, liveIn);
         foldSetUnion(liveIn, gen);
         inMap[&block] = liveIn;
-
-        // std::cout << "old in: " << concatStringList(oldIn) << std::endl;
-        // std::cout << "live in: " << concatStringList(liveIn) << std::endl;
-        // std::cout << "live out: " << concatStringList(outFold) << std::endl;
-        // std::cout << "kill: " << concatStringList(kill) << std::endl;
-        // std::cout << "gen: " << concatStringList(gen) << std::endl;
 
         if (!stringListsEqual(oldIn, liveIn)) {
           changed = true;
@@ -523,11 +526,10 @@ int main(int argc, char *argv[]) {
   /* Start timer */
   auto analysisStart = std::chrono::high_resolution_clock::now();
   livenessAnalysis(mod);
+  find_dead_code(CFG);
   /* Stop timer */
   auto analysisStop = std::chrono::high_resolution_clock::now();
   auto analysisTime = std::chrono::duration_cast<std::chrono::milliseconds>(analysisStop - analysisStart);
-
-  find_dead_code(CFG);
 
   CFG->printGraph("CFG");
   std::cout << "Finished Analyzing CFG in " << analysisTime.count() << "ms\n";
