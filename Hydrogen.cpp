@@ -490,9 +490,9 @@ void livenessAnalysis(Module *mod) {
     std::cout << "~~~ Report ~~~" << std::endl;
 
     std::cout << "Variables used without being set: {" << concatStringList(usedButNotSet) << "}" << std::endl;
-    std::cout << "Variables set without being (instantly) used: {" << concatStringList(setButNotUsed) << "}"
+    std::cout << "Variables that are never used: {" << concatStringList(setButNotUsed) << "}"
               << std::endl;
-    std::cout << "Variables set without being (EVER) used: {" << concatStringList(unusedVariables) << "}" << std::endl;
+    std::cout << "Variables assigned a value that not used later: {" << concatStringList(unusedVariables) << "}" << std::endl;
   }
 }
 
