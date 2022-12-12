@@ -67,14 +67,13 @@ bool check_if_variable_changed(std::list<Graph_Instruction *> nodes_visited, std
           }
         }
 
-        // Check if new value is stored in variable. If variable is stored in different register, current_val is updated
-        // to the new register. If a new value is stored into the current_val register, the variable was changed so we
-        // return true;
+        // Check if current_var is used in a store operation. If so, increment num_stores.
         if (from_label.find("store") != std::string::npos && !checked) {
           checked_instructions.push_back(from_label);
           num_stores++;
         }
 
+        // Check if current_var is used in a load operation. If so, check if the next operation is a comparison. If so, set used_in_comparsion to true.
         if (from_label.find("load") != std::string::npos) {
           std::string reg = from_label.substr(from_label.find("%"), from_label.find(" =") - 2);
           std::string reg_append = reg + " ";
@@ -181,7 +180,7 @@ void find_dead_code(Graph *g) {
     }
 
     // Look for variable declarations. If variable is not changed before it is used in conditional, the code in the
-    // conditional is dead.
+    // conditional is flagged as being potentially dead code.
     for (auto e : edges) {
       std::string from_label = e->getEdgeFrom()->getInstructionLabel();
       std::string current_var;
@@ -229,7 +228,6 @@ void find_dead_code(Graph *g) {
   }
 
   // Dead functions stored in dead_func
-  // Dead code stored in dead_code in the form on lines of code
 
   std::cout << "Unused functions:\n";
   for (auto f : dead_func) {
