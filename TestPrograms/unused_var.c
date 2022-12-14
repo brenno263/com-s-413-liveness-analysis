@@ -4,14 +4,10 @@ int main() {
   int b = 5;
   int c;
   int d = 4;
-  int e;
-  int x = 100;
-
-  printf("%d", e);
-
+  int x = 100; // x is set and not used.
 
   if (a > b) {
-	c = a + b;
+	c = a + b; // here c is also set and not used.
 	d = 2;
   }
   c = 4;
