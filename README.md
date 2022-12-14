@@ -38,7 +38,7 @@ $$ cd com-s-413-liveness-analysis
 ```
 We include a build.sh script to generate the bytecode for our test program, compile Hydrogen, and run the program. To use this, you can simply run:
 ```sh
-	$$ ./build.sh
+$$ ./build.sh
 ```
 If you would like to do this yourself or use your own C program, you can do the following:
 ```sh
@@ -49,16 +49,16 @@ $$ ninja
 ```
 To compile your C program into LLVM bytecode, run:
 ```sh
-	$$ clang -c -O0 -Xclang -disable-O0-optnone -g -fno-discard-value-names -emit-llvm -S /path/to/your/program.c -o /path/to/your/program.bc
+$$ clang -c -O0 -Xclang -disable-O0-optnone -g -fno-discard-value-names -emit-llvm -S /path/to/your/program.c -o /path/to/your/program.bc
 ```
 Finally, to run the program run:
 ```sh
-	$$ ./Hydrogen.out /path/to/your/program.bc :: /path/to/your/program.c
+$$ ./Hydrogen.out /path/to/your/program.bc :: /path/to/your/program.c
 ```
 For our test program, you can run:
 ```sh
-	$$ clang -c -O0 -Xclang -disable-O0-optnone -g -fno-discard-value-names -emit-llvm -S ../TestPrograms/Prog.c -o ../TestPrograms/Prog.bc
-	$$ ./Hydrogen.out ../TestPrograms/Prog.bc :: ../TestPrograms/Prog.c
+$$ clang -c -O0 -Xclang -disable-O0-optnone -g -fno-discard-value-names -emit-llvm -S ../TestPrograms/Prog.c -o ../TestPrograms/Prog.bc
+$$ ./Hydrogen.out ../TestPrograms/Prog.bc :: ../TestPrograms/Prog.c
 ```
 
 ## Dependencies
