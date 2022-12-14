@@ -1,19 +1,15 @@
-# Hydrogen: MVICFG Generator
+# Hydrogen: Liveness Analysis
 
 Table of Contents
 =================
 
-* [Quick Start Guide:](#quick-start-guide)
-  * [Building Hydrogen](#building-hydrogen)
-  * [Using Hydrogen](#using-hydrogen)
+* [Introduction:](#introduction)
+* [Building Hydrogen](#building-hydrogen)
+* [Using Hydrogen](#using-hydrogen)
 * [Dependencies](#dependencies)
-* [Documentation](#documentation)
-* [Questions and Bug reporting:](#questions-and-bug-reporting)
-* [Acknowledgment](#acknowledgment)
 
-## Quick Start Guide:
-It is advised to go through `Docs` to get an understanding of the project.  If you are in a hurry, this will get you set
-up.
+## Introduction:
+For this project, our group modified Hydrogen to perform liveness analysis rather than constructing MVICFGs, its original purpose. The bulk of our original work can be found in `Liveness.cpp`.
 
 ### Building Hydrogen
 1) Before building the project, make sure the [dependencies](#dependencies) are met. You can also make use of the
@@ -78,12 +74,3 @@ Hydrogen depends on the `LLVM Framework` and `Boost Libraries`. Roughly, the fol
 While slightly older versions for `Cmake` and `Ninja` can be used without any problem, using older versions of
  `LLVM Framework` and `Boost` can have unwanted consequences and may even result in build failure.
 
-## Documentation
-Comments and more details for the program including the class structure with their supporting functions and their purpose can be
- found in `Doc` folder. Follow the `README.txt` inside the folder for more information.
-
-## Questions and Bug reporting:
-In case of questions about the usage/functionality of the framework or if you want to report a bug, please email `hydrogen-mvicfg@iastate.edu`. The repository will be updated with more features and bug fixes in time, but there will be a delay in responding to the emails.
-
-## Acknowledgment
-This work is developed under the support of the National Science Foundation (NSF) under Award 1542117
