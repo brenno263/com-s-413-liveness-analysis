@@ -16,22 +16,13 @@ For this project, our group modified Hydrogen to perform liveness analysis rathe
  [docker image](https://hub.docker.com/r/ashwinkj/hydrogen_env), where the environment is already set up for you.
 2) Clone `Hydrogen` from GitHub. If you are using the Docker, you can clone it into `/home/Hydrogen/MVICFG` folder.
 3) Compile `Hydrogen` with the help of `CMakeLists.txt`. You can also use `GNU Make`, if that is the preferred method.
-4) Assuming you are using the Docker and Ninja, the steps would be like below. But first [install](https://docs.docker.com/install/) Docker using the recommended method for your system.
-```sh
-# Download and run the Docker from your system.
-$ docker run -it --name Hydrogen_Env ashwinkj/hydrogen_env
-# The above command will put you inside the Docker Container.
-$$ git clone https://github.com/iowastateuniversity-programanalysis/hydrogen /home/Hydrogen/MVICFG
-$$ cd /home/Hydrogen/MVICFG
-$$ mkdir BuildNinja
-$$ cmake -B BuildNinja -G Ninja .
-$$ cd BuildNinja
-$$ ninja
-```
 
 ### Using the Program
-Open the Hydrogen docker image. Inside of the Hydrogen docker container, run the following commands:
+First you'll need to run the Hydrogen Docker container, then clone the repository. You can do this by running the following:
 ```sh
+# Run the Hydrogen Docker container.
+$ docker run -it --name Hydrogen_Env ashwinkj/hydrogen_env
+# You should now be in the Docker container.
 $$ cd /home/Hydrogen
 $$ git clone https://github.com/brenno263/com-s-413-liveness-analysis.git
 $$ cd com-s-413-liveness-analysis
