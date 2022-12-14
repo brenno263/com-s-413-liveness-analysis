@@ -29,35 +29,37 @@ $$ cd BuildNinja
 $$ ninja
 ```
 
-### Using Hydrogen
-1) Hydrogen needs both the source code and LLVM IR code to generate MVICFG and output it as `MVICFG.dot` for
- visualization.
-2) To compile a single file program into LLVM IR code necessary for Hydrogen invoke `clang` with `-O0 -Xclang
- -disable-O0-optnone -g -emit-llvm -S` flag.
-3) To generate MVICFG, call Hydrogen with both the LLVM IR and paths to their source files. Hydrogen will generate the
- diff from the source files to generate the MVICFG.
-4) Assuming that you have two versions of `Prog.c`  in two folder `Buggy` and `Correct`, the tentative steps to generate MVICFG
- is shown below.
+### Using the Program
+Open the Hydrogen docker image. Inside of the Hydrogen docker container, run the following commands:
 ```sh
-# In folder Buggy, compile Prog.c into LLVM IR (ProgV1.bc)
-$ cd TestPrograms/Buggy
-$ clang -c -O0 -Xclang -disable-O0-optnone -g -emit-llvm -S Prog.c -o ProgV1.bc
-# Similary in folder Correct, compile Prog.c into LLVM IR (ProgV2.bc)
-$ cd ../Correct
-$ clang -c -O0 -Xclang -disable-O0-optnone -g -emit-llvm -S Prog.c -o ProgV2.bc
+$$ cd /home/Hydrogen
+$$ git clone https://github.com/brenno263/com-s-413-liveness-analysis.git
+$$ cd com-s-413-liveness-analysis
 ```
-5) Once the LLVM IR are generated, then use Hydrogen to generate the MVICFG.
+We include a build.sh script to generate the bytecode for our test program, compile Hydrogen, and run the program. To use this, you can simply run:
 ```sh
-# Generic Command
-$ Hydrogen.out <Path-to-LLVMIR_1> <Path-to-LLVMIR_2> .. <Path-to-LLVMIR_N> :: <Path-to-file1-for-Prog_V1> ..\
- <Path-to-fileN-for-Prog_V1> :: <Path-to-file1-for-Prog_V2> .. <Path-to-fileN-for-Prog_V2> ..
-# Command for the above example from BuildNinja folder
-$ ./Hydrogen.out ../TestPrograms/Buggy/ProgV1.bc ../TestPrograms/Correct/ProgV2.bc :: ../TestPrograms/Buggy/Prog.c ::\
- ../TestPrograms/Correct/Prog.c
+	$$ ./build.sh
 ```
-6) A python script `BuildSystem.py` is provided to ease the process of invoking the Hydrogen executable. It will also
- rebuild Hydrogen (if necessary) and transfer the resulting `MVICFG.dot` file into the parent directory. *This python script
- is an example to base your own scripts. You might need to adpat this into bash script if running in Docker.*
+If you would like to do this yourself or use your own C program, you can do the following:
+```sh
+$$ mkdir BuildNinja
+$$ cmake -B BuildNinja -G Ninja .
+$$ cd BuildNinja
+$$ ninja
+```
+To compile your C program into LLVM bytecode, run:
+```sh
+	$$ clang -c -O0 -Xclang -disable-O0-optnone -g -fno-discard-value-names -emit-llvm -S /path/to/your/program.c -o /path/to/your/program.bc
+```
+Finally, to run the program run:
+```sh
+	$$ ./Hydrogen.out /path/to/your/program.bc :: /path/to/your/program.c
+```
+For our test program, you can run:
+```sh
+	$$ clang -c -O0 -Xclang -disable-O0-optnone -g -fno-discard-value-names -emit-llvm -S ../TestPrograms/Prog.c -o ../TestPrograms/Prog.bc
+	$$ ./Hydrogen.out ../TestPrograms/Prog.bc :: ../TestPrograms/Prog.c
+```
 
 ## Dependencies
 Hydrogen depends on the `LLVM Framework` and `Boost Libraries`. Roughly, the following are required for Hydrogen to
