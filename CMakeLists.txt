@@ -31,6 +31,8 @@ set(SOURCE_FILES
     Graph_Line.cpp
     Graph_Line.hpp
     Hydrogen.cpp
+	Liveness.cpp
+	Liveness.hpp
     Module.cpp
     Module.hpp
     MVICFG.cpp
