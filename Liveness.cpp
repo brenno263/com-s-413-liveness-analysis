@@ -84,7 +84,6 @@ bool check_if_variable_changed(std::list<Graph_Instruction *> nodes_visited, std
                 used_in_comparison = true;
 
                 if (num_stores < 2) {
-                  std::cout << "Variable " << current_var << " is not changed before comparison" << std::endl;
                   return false;
                 }
               }
@@ -104,14 +103,11 @@ bool check_if_variable_changed(std::list<Graph_Instruction *> nodes_visited, std
   }
 
   if (num_stores >= 2 && used_in_comparison) {
-    std::cout << "Variable " << current_var << " is changed before comparison" << std::endl;
     return true;
   }
   if (num_stores < 2 && used_in_comparison) {
-    std::cout << "Variable " << current_var << " is not changed before comparison" << std::endl;
     return false;
   }
-  std::cout << "Variable " << current_var << " is unused" << std::endl;
   return false;
 }
 
@@ -198,6 +194,13 @@ void find_dead_code(Graph *g) {
         if (!in_list) {
           checked_variables.push_back(current_var);
           bool changed = check_if_variable_changed(nodes_visited, stack, node, current_var);
+          
+          if (changed) {
+            std::cout << "Variable " << current_var << " is changed before comparison" << std::endl;
+          }
+          else {
+            std::cout << "Variable " << current_var << " is not changed before comparison" << std::endl;
+          }
         }
       }
     }
