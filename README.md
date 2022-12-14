@@ -5,7 +5,7 @@ Table of Contents
 
 * [Introduction:](#introduction)
 * [Building Hydrogen](#building-hydrogen)
-* [Using Hydrogen](#using-hydrogen)
+* [Using the Program](#using-the-program)
 * [Dependencies](#dependencies)
 
 ## Introduction:
