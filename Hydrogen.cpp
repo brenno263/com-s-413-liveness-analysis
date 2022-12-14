@@ -131,6 +131,8 @@ void find_dead_code(Graph *g) {
   Graph_Instruction *node = g->findVirtualEntry("main");
   nodes_visited.push_back(node);
   Graph_Instruction *exit_node = g->findVirtualExit("main");
+
+  std::cout << "~~~~~~~~~~ Alternative Analysis ~~~~~~~~~~" << std::endl;
   while (true) {
     auto edges = node->getInstructionEdges();
 
@@ -222,9 +224,9 @@ void find_dead_code(Graph *g) {
   // Dead functions stored in dead_func
   // Dead code stored in dead_code in the form on lines of code
 
-  std::cout << "Unused functions:\n";
+  std::cout << "~~~~~~~~~~ Unused functions: ~~~~~~~~~~" << std::endl;
   for (auto f : dead_func) {
-    std::cout << f->getFunctionName() << "\n";
+    std::cout << f->getFunctionName() << std::endl;
   }
 }
 
@@ -530,7 +532,7 @@ int main(int argc, char *argv[]) {
   find_dead_code(CFG);
 
   CFG->printGraph("CFG");
-  std::cout << "Finished Analyzing CFG in " << analysisTime.count() << "ms\n";
+  std::cout << std::endl << "Finished Analyzing CFG in " << analysisTime.count() << "ms\n";
   /* Write output to file */
   std::ofstream rFile("Result.txt", std::ios::trunc);
   if (!rFile.is_open()) {
