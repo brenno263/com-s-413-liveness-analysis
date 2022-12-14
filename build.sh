@@ -4,6 +4,7 @@ function clang-llvm() {
 
 # meant to be run from within the ninja directory
 function run() {
+	echo "Running Liveness Analysis on test case $1"
 	./Hydrogen.out ../TestPrograms/$1.bc :: ../TestPrograms/$1.c
 }
 

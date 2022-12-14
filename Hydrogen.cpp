@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
   auto analysisTime = std::chrono::duration_cast<std::chrono::milliseconds>(analysisStop - analysisStart);
 
   CFG->printGraph("CFG");
-  std::cout << std::endl << "Finished Analyzing CFG in " << analysisTime.count() << "ms\n";
+  std::cout << std::endl << "Finished Analyzing CFG in " << analysisTime.count() << "ms\n" << std::endl << std::endl;
   /* Write output to file */
   std::ofstream rFile("Result.txt", std::ios::trunc);
   if (!rFile.is_open()) {

@@ -1,13 +1,13 @@
 /**
  * @authors Benjamin Goodall, Brennan Seymour, Marios Tsekitsidis, Garrett Westenskow
-*/
+ */
 #include "Liveness.hpp"
-#include "Module.hpp"
 #include "Graph.hpp"
-#include "Graph_Function.hpp"
-#include "Graph_Line.hpp"
-#include "Graph_Instruction.hpp"
 #include "Graph_Edge.hpp"
+#include "Graph_Function.hpp"
+#include "Graph_Instruction.hpp"
+#include "Graph_Line.hpp"
+#include "Module.hpp"
 
 namespace hydrogen_framework {
 
@@ -23,15 +23,15 @@ bool nodeListContains(std::list<Graph_Instruction *> &edges, Graph_Instruction *
 }
 
 /**
-* Returns true if the edge ends at this node.
-*/
+ * Returns true if the edge ends at this node.
+ */
 bool isBackEdge(Graph_Edge *edge, Graph_Instruction *node) { return edge->getEdgeTo() == node; }
 
 /**
-* Checks if a variable changes from its initial value before it is used.
-*/
+ * Checks if a variable changes from its initial value before it is used.
+ */
 bool checkIfVariableChanged(std::list<Graph_Instruction *> nodes_visited, std::list<Graph_Instruction *> stack,
-                               Graph_Instruction *node, std::string current_var) {
+                            Graph_Instruction *node, std::string current_var) {
   int num_stores = 0;
   bool used_in_comparison = false;
   std::list<std::string> checked_instructions = {};
@@ -69,7 +69,8 @@ bool checkIfVariableChanged(std::list<Graph_Instruction *> nodes_visited, std::l
           num_stores++;
         }
 
-        // Check if current_var is used in a load operation. If so, check if the next operation is a comparison. If so, set used_in_comparsion to true.
+        // Check if current_var is used in a load operation. If so, check if the next operation is a comparison. If so,
+        // set used_in_comparsion to true.
         if (from_label.find("load") != std::string::npos) {
           std::string reg = from_label.substr(from_label.find("%"), from_label.find(" =") - 2);
           std::string reg_append = reg + " ";
@@ -194,11 +195,10 @@ void findDeadCode(Graph *g) {
         if (!in_list) {
           checked_variables.push_back(current_var);
           bool changed = checkIfVariableChanged(nodes_visited, stack, node, current_var);
-          
+
           if (changed) {
             std::cout << "Variable " << current_var << " is changed before comparison" << std::endl;
-          }
-          else {
+          } else {
             std::cout << "Variable " << current_var << " is not changed before comparison" << std::endl;
           }
         }
@@ -280,7 +280,7 @@ unsigned int getLine(llvm::Instruction &inst) {
 }
 
 /**
- * Returns the name of the given BasicBlock, or "unnamed" if there is no name 
+ * Returns the name of the given BasicBlock, or "unnamed" if there is no name
  */
 std::string getBlockName(llvm::BasicBlock *b) {
   if (b->hasName()) {
@@ -318,17 +318,19 @@ void foldSetUnion(std::list<std::string> &fold, std::list<std::string> &a) { app
  * Sets the passes gen and kill variables to their starting values for the given BasicBlock block.
  * killUnused is a subset of kill, excluding variables which are read later in this block.
  */
-void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::list<std::string> &kill, std::list<std::string> &killUnused) {
+void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::list<std::string> &kill,
+                  std::list<std::string> &killUnused) {
   for (auto &inst : block) {
-    //For each instruction in the BasicBlock
+    // For each instruction in the BasicBlock
     unsigned int opcode = inst.getOpcode();
 
-    if (opcode == llvm::Instruction::Call) 
-      continue; //We don't learn anything from function calls, skip this instruciton
+    if (opcode == llvm::Instruction::Call)
+      continue; // We don't learn anything from function calls, skip this instruciton
 
     unsigned int numOperands = inst.getNumOperands();
     for (int opIndex = numOperands; opIndex > 0;) {
-      opIndex--; //Done like this because 1: right to left is useful and 2: numOperands is unsigned, so numOperands - 1 is dangerous.
+      opIndex--; // Done like this because 1: right to left is useful and 2: numOperands is unsigned, so numOperands - 1
+                 // is dangerous.
       llvm::Value *op = inst.getOperand(opIndex);
       if (op == NULL || !op->hasName()) {
         continue;
@@ -342,15 +344,15 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
 
       // Consider these operations to be added to GEN.
       if (opcode == llvm::Instruction::Load) {
-		// Only add vars not already in gen, and which haven't yet been assigned to (in kill)
+        // Only add vars not already in gen, and which haven't yet been assigned to (in kill)
         if (!stringListContains(gen, varName)) {
-			if(stringListContains(kill, varName)) {
-				// this var was set, now used. Take it out of killUnused
-				killUnused.remove(varName);
-			} else {
-				// this var was used, but hasn't yet been set in this block.
-				gen.push_back(varName);
-			}
+          if (stringListContains(kill, varName)) {
+            // this var was set, now used. Take it out of killUnused
+            killUnused.remove(varName);
+          } else {
+            // this var was used, but hasn't yet been set in this block.
+            gen.push_back(varName);
+          }
         }
       }
 
@@ -358,7 +360,7 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
       if (opcode == llvm::Instruction::Store && opIndex == 1) {
         if (!stringListContains(kill, varName)) {
           kill.push_back(varName);
-		  killUnused.push_back(varName);
+          killUnused.push_back(varName);
         }
       }
     }
@@ -366,8 +368,8 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
 }
 
 /*
-* Format a nice looking string for printing a list of strings
-*/
+ * Format a nice looking string for printing a list of strings
+ */
 std::string concatStringList(std::list<std::string> &list) {
   std::string out("");
   for (auto s : list) {
@@ -397,7 +399,7 @@ void livenessAnalysis(Module *mod) {
     // The set for each block lives at its index.
     std::map<llvm::BasicBlock *, std::list<std::string>> genMap;
     std::map<llvm::BasicBlock *, std::list<std::string>> killMap;
-	std::map<llvm::BasicBlock *, std::list<std::string>> killUnusedMap;
+    std::map<llvm::BasicBlock *, std::list<std::string>> killUnusedMap;
     std::map<llvm::BasicBlock *, std::list<std::string>> inMap;
     std::map<llvm::BasicBlock *, std::list<std::string>> outMap;
 
@@ -405,12 +407,12 @@ void livenessAnalysis(Module *mod) {
     for (llvm::BasicBlock &block : blocks) {
       std::list<std::string> gen;
       std::list<std::string> kill;
-	  std::list<std::string> killUnused;
+      std::list<std::string> killUnused;
       analyzeBlock(block, gen, kill, killUnused);
 
       genMap[&block] = gen;
       killMap[&block] = kill;
-	  killUnusedMap[&block] = killUnused;
+      killUnusedMap[&block] = killUnused;
       std::list<std::string> empty;
       inMap[&block] = empty;
       outMap[&block] = empty;
@@ -456,41 +458,47 @@ void livenessAnalysis(Module *mod) {
 
     // Now we have a bunch of sets that tells us when we can stop caring about a variable's value.
     // Analyze the sets for variables that do not appear in any IN values to find useless variables.
-	std::list<std::string> unsetVariables;
+    std::list<std::string> unsetVariables;
     std::list<std::string> unusedVariables;
 
-	// anything on the in-set of our first block is being used somewhere but never set.
-	if(inMap.size() > 0) {
-		foldSetUnion(unsetVariables, inMap.begin()->second);
-	}
+    // anything on the in-set of our first block is being used somewhere but never set.
+    if (inMap.size() > 0) {
+      foldSetUnion(unsetVariables, inMap.begin()->second);
+    }
 
     std::cout << "~~~~~~~~~~ Generated results for the function " << func.getName().str() << " ~~~~~~~~~~" << std::endl;
     for (auto iterator = genMap.begin(); iterator != genMap.end(); ++iterator) {
       llvm::BasicBlock *block = iterator->first;
       llvm::Instruction &startingInstruction = block->front();
-      std::cout << "~~~ Block with name: " << getBlockName(block) << " line: " << getLine(startingInstruction) << " ~~~"
-                << std::endl;
+      //   std::cout << "~~~ Block with name: " << getBlockName(block) << " line: " << getLine(startingInstruction) <<
+      //  "~~~" << std::endl;
 
-      auto genList        = genMap.find(block)->second;
-      auto killList       = killMap.find(block)->second;
-	  auto killUnusedList = killUnusedMap.find(block)->second;
-      auto inList         = inMap.find(block)->second;
-      auto outList        = outMap.find(block)->second;
+      auto genList = genMap.find(block)->second;
+      auto killList = killMap.find(block)->second;
+      auto killUnusedList = killUnusedMap.find(block)->second;
+      auto inList = inMap.find(block)->second;
+      auto outList = outMap.find(block)->second;
 
-      std::cout << "Values for GEN: {" << concatStringList(genList) << "}" << std::endl;
-      std::cout << "Values for KILL: {" << concatStringList(killList) << "}" << std::endl;
-	  std::cout << "Values for KILL-UNUSED: {" << concatStringList(killUnusedList) << "}" << std::endl;
-      std::cout << "Values for IN: {" << concatStringList(inList) << "}" << std::endl;
-      std::cout << "Values for OUT: {" << concatStringList(outList) << "}" << std::endl;
+      //   std::cout << "Values for GEN: {" << concatStringList(genList) << "}" << std::endl;
+      //   std::cout << "Values for KILL: {" << concatStringList(killList) << "}" << std::endl;
+      //   std::cout << "Values for KILL-UNUSED: {" << concatStringList(killUnusedList) << "}" << std::endl;
+      //   std::cout << "Values for IN: {" << concatStringList(inList) << "}" << std::endl;
+      //   std::cout << "Values for OUT: {" << concatStringList(outList) << "}" << std::endl;
 
       // Anything in the killUnused list which isn't in the out list is going unused.
       appendSetDiff(killUnusedList, outList, unusedVariables);
     }
 
-    std::cout << "~~~ Report ~~~" << std::endl;
+    // std::cout << "~~~ Report ~~~" << std::endl;
 
-    std::cout << "Variables used without being set: {" << concatStringList(unsetVariables) << "}" << std::endl;
-    std::cout << "Variables assigned a value that not used later: {" << concatStringList(unusedVariables) << "}" << std::endl;
+    if (unsetVariables.size() > 0)
+      std::cout << "Variables used without being set: {" << concatStringList(unsetVariables) << "}" << std::endl;
+    if (unusedVariables.size() > 0)
+      std::cout << "Variables assigned a value that not used later: {" << concatStringList(unusedVariables) << "}"
+                << std::endl;
+    if (unsetVariables.size() == 0 && unusedVariables.size() == 0) {
+      std::cout << "No issues found by Liveness Analysis" << std::endl;
+    }
   }
 }
 
