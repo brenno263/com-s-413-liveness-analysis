@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
   /* Start timer */
   auto analysisStart = std::chrono::high_resolution_clock::now();
   livenessAnalysis(mod);
-  find_dead_code(CFG);
+  findDeadCode(CFG);
   /* Stop timer */
   auto analysisStop = std::chrono::high_resolution_clock::now();
   auto analysisTime = std::chrono::duration_cast<std::chrono::milliseconds>(analysisStop - analysisStart);

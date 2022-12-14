@@ -14,7 +14,7 @@ namespace hydrogen_framework {
 /**
  * Returns true if edges contains edge, and false otherwise
  */
-bool node_list_contains(std::list<Graph_Instruction *> &edges, Graph_Instruction *edge) {
+bool nodeListContains(std::list<Graph_Instruction *> &edges, Graph_Instruction *edge) {
   for (auto e : edges) {
     if (e == edge)
       return true;
@@ -25,12 +25,12 @@ bool node_list_contains(std::list<Graph_Instruction *> &edges, Graph_Instruction
 /**
 * Returns true if the edge ends at this node.
 */
-bool is_back_edge(Graph_Edge *edge, Graph_Instruction *node) { return edge->getEdgeTo() == node; }
+bool isBackEdge(Graph_Edge *edge, Graph_Instruction *node) { return edge->getEdgeTo() == node; }
 
 /**
 * Checks if a variable changes from its initial value before it is used.
 */
-bool check_if_variable_changed(std::list<Graph_Instruction *> nodes_visited, std::list<Graph_Instruction *> stack,
+bool checkIfVariableChanged(std::list<Graph_Instruction *> nodes_visited, std::list<Graph_Instruction *> stack,
                                Graph_Instruction *node, std::string current_var) {
   int num_stores = 0;
   bool used_in_comparison = false;
@@ -40,8 +40,8 @@ bool check_if_variable_changed(std::list<Graph_Instruction *> nodes_visited, std
     auto edges = node->getInstructionEdges();
 
     for (auto e : edges) {
-      if (!is_back_edge(e, node)) {
-        if (!node_list_contains(nodes_visited, e->getEdgeTo())) {
+      if (!isBackEdge(e, node)) {
+        if (!nodeListContains(nodes_visited, e->getEdgeTo())) {
           stack.push_back(e->getEdgeTo());
         }
       }
@@ -122,7 +122,7 @@ bool check_if_variable_changed(std::list<Graph_Instruction *> nodes_visited, std
  * one outgoing edge, and the excess are counted as branches. We add two to this. 1 because a straight line counts as a
  * path, so we need to offset our count. 1 more to account for the exit node.
  */
-void find_dead_code(Graph *g) {
+void findDeadCode(Graph *g) {
   auto edges = g->getGraphEdges();
   auto functions = g->getGraphFunctions();
   std::list<Graph_Instruction *> nodes_visited = {};
@@ -141,8 +141,8 @@ void find_dead_code(Graph *g) {
     auto edges = node->getInstructionEdges();
 
     for (auto e : edges) {
-      if (!is_back_edge(e, node)) {
-        if (!node_list_contains(nodes_visited, e->getEdgeTo())) {
+      if (!isBackEdge(e, node)) {
+        if (!nodeListContains(nodes_visited, e->getEdgeTo())) {
           stack.push_back(e->getEdgeTo());
         }
       }
@@ -197,7 +197,7 @@ void find_dead_code(Graph *g) {
 
         if (!in_list) {
           checked_variables.push_back(current_var);
-          bool changed = check_if_variable_changed(nodes_visited, stack, node, current_var);
+          bool changed = checkIfVariableChanged(nodes_visited, stack, node, current_var);
         }
       }
     }

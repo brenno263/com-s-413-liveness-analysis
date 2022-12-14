@@ -11,7 +11,7 @@ namespace hydrogen_framework {
 class Graph;
 class Module;
 
-void find_dead_code(Graph *g);
+void findDeadCode(Graph *g);
 
 void livenessAnalysis(Module *mod);
 
