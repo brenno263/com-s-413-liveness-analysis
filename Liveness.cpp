@@ -316,8 +316,9 @@ void foldSetUnion(std::list<std::string> &fold, std::list<std::string> &a) { app
 
 /**
  * Sets the passes gen and kill variables to their starting values for the given BasicBlock block.
+ * killUnused is a subset of kill, excluding variables which are read later in this block.
  */
-void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::list<std::string> &kill) {
+void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::list<std::string> &kill, std::list<std::string> &killUnused) {
   for (auto &inst : block) {
     //For each instruction in the BasicBlock
     unsigned int opcode = inst.getOpcode();
@@ -339,10 +340,17 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
         continue;
       }
 
-      // Consider these operations to be added to GEN. They use a variable
+      // Consider these operations to be added to GEN.
       if (opcode == llvm::Instruction::Load) {
+		// Only add vars not already in gen, and which haven't yet been assigned to (in kill)
         if (!stringListContains(gen, varName)) {
-          gen.push_back(varName);
+			if(stringListContains(kill, varName)) {
+				// this var was set, now used. Take it out of killUnused
+				killUnused.remove(varName);
+			} else {
+				// this var was used, but hasn't yet been set in this block.
+				gen.push_back(varName);
+			}
         }
       }
 
@@ -350,6 +358,7 @@ void analyzeBlock(llvm::BasicBlock &block, std::list<std::string> &gen, std::lis
       if (opcode == llvm::Instruction::Store && opIndex == 1) {
         if (!stringListContains(kill, varName)) {
           kill.push_back(varName);
+		  killUnused.push_back(varName);
         }
       }
     }
@@ -388,6 +397,7 @@ void livenessAnalysis(Module *mod) {
     // The set for each block lives at its index.
     std::map<llvm::BasicBlock *, std::list<std::string>> genMap;
     std::map<llvm::BasicBlock *, std::list<std::string>> killMap;
+	std::map<llvm::BasicBlock *, std::list<std::string>> killUnusedMap;
     std::map<llvm::BasicBlock *, std::list<std::string>> inMap;
     std::map<llvm::BasicBlock *, std::list<std::string>> outMap;
 
@@ -395,10 +405,12 @@ void livenessAnalysis(Module *mod) {
     for (llvm::BasicBlock &block : blocks) {
       std::list<std::string> gen;
       std::list<std::string> kill;
-      analyzeBlock(block, gen, kill);
+	  std::list<std::string> killUnused;
+      analyzeBlock(block, gen, kill, killUnused);
 
       genMap[&block] = gen;
       killMap[&block] = kill;
+	  killUnusedMap[&block] = killUnused;
       std::list<std::string> empty;
       inMap[&block] = empty;
       outMap[&block] = empty;
@@ -444,9 +456,13 @@ void livenessAnalysis(Module *mod) {
 
     // Now we have a bunch of sets that tells us when we can stop caring about a variable's value.
     // Analyze the sets for variables that do not appear in any IN values to find useless variables.
-    std::list<std::string> usedVariables;
-    std::list<std::string> setVariables;
+	std::list<std::string> unsetVariables;
     std::list<std::string> unusedVariables;
+
+	// anything on the in-set of our first block is being used somewhere but never set.
+	if(inMap.size() > 0) {
+		foldSetUnion(unsetVariables, inMap.begin()->second);
+	}
 
     std::cout << "~~~~~~~~~~ Generated results for the function " << func.getName().str() << " ~~~~~~~~~~" << std::endl;
     for (auto iterator = genMap.begin(); iterator != genMap.end(); ++iterator) {
@@ -455,42 +471,25 @@ void livenessAnalysis(Module *mod) {
       std::cout << "~~~ Block with name: " << getBlockName(block) << " line: " << getLine(startingInstruction) << " ~~~"
                 << std::endl;
 
-      auto genList = genMap.find(block)->second;
-      auto killList = killMap.find(block)->second;
-      auto inList = inMap.find(block)->second;
-      auto outList = outMap.find(block)->second;
+      auto genList        = genMap.find(block)->second;
+      auto killList       = killMap.find(block)->second;
+	  auto killUnusedList = killUnusedMap.find(block)->second;
+      auto inList         = inMap.find(block)->second;
+      auto outList        = outMap.find(block)->second;
 
       std::cout << "Values for GEN: {" << concatStringList(genList) << "}" << std::endl;
       std::cout << "Values for KILL: {" << concatStringList(killList) << "}" << std::endl;
+	  std::cout << "Values for KILL-UNUSED: {" << concatStringList(killUnusedList) << "}" << std::endl;
       std::cout << "Values for IN: {" << concatStringList(inList) << "}" << std::endl;
       std::cout << "Values for OUT: {" << concatStringList(outList) << "}" << std::endl;
 
-      // Anything in the kill list which isn't in the out list is going unused.
-      appendSetDiff(killList, outList, unusedVariables);
-
-      for (auto str : genList) {
-        if (!stringListContains(usedVariables, str)) {
-          usedVariables.push_back(str);
-        }
-      }
-      for (auto str : killList) {
-        if (!stringListContains(setVariables, str)) {
-          setVariables.push_back(str);
-        }
-      }
+      // Anything in the killUnused list which isn't in the out list is going unused.
+      appendSetDiff(killUnusedList, outList, unusedVariables);
     }
-
-    std::list<std::string> usedButNotSet;
-    appendSetDiff(usedVariables, setVariables, usedButNotSet);
-
-    std::list<std::string> setButNotUsed;
-    appendSetDiff(setVariables, usedVariables, setButNotUsed);
 
     std::cout << "~~~ Report ~~~" << std::endl;
 
-    std::cout << "Variables used without being set: {" << concatStringList(usedButNotSet) << "}" << std::endl;
-    std::cout << "Variables that are never used: {" << concatStringList(setButNotUsed) << "}"
-              << std::endl;
+    std::cout << "Variables used without being set: {" << concatStringList(unsetVariables) << "}" << std::endl;
     std::cout << "Variables assigned a value that not used later: {" << concatStringList(unusedVariables) << "}" << std::endl;
   }
 }

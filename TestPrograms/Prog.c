@@ -4,7 +4,10 @@ int main() {
   int b = 5;
   int c;
   int d = 4;
+  int e;
   int x = 100;
+
+  printf("%d", e);
 
 
   if (a > b) {
