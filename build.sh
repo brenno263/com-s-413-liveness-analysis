@@ -12,6 +12,10 @@ function run() {
 cd TestPrograms
 clang-llvm unused_var
 clang-llvm unset_var
+clang-llvm changed_var
+clang-llvm unchanged_var
+clang-llvm used_func
+clang-llvm dead_func
 cd ..
 
 
@@ -23,5 +27,9 @@ ninja
 
 run unused_var
 run unset_var
+run changed_var
+run unchanged_var
+run used_func
+run dead_func
 cd ..
 chmod -R 777 ninja
