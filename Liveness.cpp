@@ -133,7 +133,7 @@ void findDeadCode(Graph *g) {
   nodes_visited.push_back(node);
   Graph_Instruction *exit_node = g->findVirtualExit("main");
 
-  std::cout << "~~~~~~~~~~ Alternative Analysis ~~~~~~~~~~" << std::endl;
+  std::cout << "~~~~~~~~~~ Dead Code Detection ~~~~~~~~~~" << std::endl;
   while (true) {
     auto edges = node->getInstructionEdges();
 
@@ -230,7 +230,7 @@ void findDeadCode(Graph *g) {
 
   // Dead functions stored in dead_func
 
-  std::cout << "~~~~~~~~~~ Unused functions: ~~~~~~~~~~" << std::endl;
+  std::cout << "~~~~~~~~~~ Unused Functions: ~~~~~~~~~~" << std::endl;
   for (auto f : dead_func) {
     std::cout << f->getFunctionName() << std::endl;
   }
